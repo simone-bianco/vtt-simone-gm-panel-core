@@ -94,3 +94,8 @@ jobs:
           else
             gh release create "$GITHUB_REF_NAME" dist/module.json "dist/$ASSET_NAME"               --title "Simone GM Panel Core $GITHUB_REF_NAME"               --generate-notes
           fi
+
+      - name: Register package version with Foundry VTT
+        env:
+          FOUNDRY_RELEASE_TOKEN: ${{ secrets.FOUNDRY_RELEASE_TOKEN }}
+        run: node .github/scripts/publish-foundry-release.mjs
