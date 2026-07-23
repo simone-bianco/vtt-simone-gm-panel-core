@@ -1,0 +1,12 @@
+<nav class="sheet-tabs tabs sgmp-tabs" aria-roledescription="{{localize 'SHEETS.FormNavLabel'}}">
+  {{#each tabs as |tab|}}
+  <a
+    class="sgmp-tab-link{{#if tab.active}} active{{/if}}"
+    data-feature-id="{{tab.id}}"
+    title="{{localize tab.label}}"
+  >
+    {{#if tab.icon}}<i class="{{tab.icon}}" inert></i>{{/if}}
+    <span class="sgmp-tab-label">{{localize tab.label}}</span>
+  </a>
+  {{/each}}
+</nav>

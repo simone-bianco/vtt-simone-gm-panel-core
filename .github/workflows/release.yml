@@ -1,0 +1,96 @@
+name: Release Foundry Module
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Validate tag and manifest contract
+        env:
+          ASSET_NAME: "simone-gm-panel.zip"
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const manifest = JSON.parse(fs.readFileSync("module.json", "utf8"));
+          const tag = process.env.GITHUB_REF_NAME;
+          const expectedTag = `v${manifest.version}`;
+          if (tag !== expectedTag) throw new Error(`Tag ${tag} must match ${expectedTag}`);
+          const expectedDownload = `${manifest.url}/releases/download/${tag}/${process.env.ASSET_NAME}`;
+          if (manifest.download !== expectedDownload) {
+            throw new Error(`download must be ${expectedDownload}, got ${manifest.download}`);
+          }
+          if (manifest.manifest !== `${manifest.url}/releases/latest/download/module.json`) {
+            throw new Error("manifest URL must point to releases/latest/download/module.json");
+          }
+          for (const key of ["id", "title", "version", "compatibility", "url", "manifest", "download"]) {
+            if (!manifest[key]) throw new Error(`Missing manifest field: ${key}`);
+          }
+          console.log(`PASS ${manifest.id} ${manifest.version} release contract`);
+          NODE
+
+      - name: Validate JavaScript syntax
+        shell: bash
+        run: |
+          find scripts -type f -name "*.js" -print0 | xargs -0 -n1 node --check
+
+      - name: Validate declared local assets
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const manifest = JSON.parse(fs.readFileSync("module.json", "utf8"));
+          for (const field of ["esmodules", "scripts", "styles", "languages"]) {
+            for (const entry of manifest[field] ?? []) {
+              const path = typeof entry === "string" ? entry : entry.path;
+              if (path && !fs.existsSync(path)) throw new Error(`Missing ${field} asset: ${path}`);
+            }
+          }
+          for (const file of ["README.md", "CHANGELOG.md", "LICENSE"]) {
+            if (!fs.existsSync(file)) throw new Error(`Missing release document: ${file}`);
+          }
+          console.log("PASS manifest assets and release documents");
+          NODE
+
+      - name: Build Foundry release assets
+        env:
+          ASSET_NAME: "simone-gm-panel.zip"
+        run: |
+          mkdir -p dist/package
+          cp module.json README.md CHANGELOG.md LICENSE dist/package/
+          for directory in scripts styles templates languages; do
+            if [ -d "$directory" ]; then cp -R "$directory" dist/package/; fi
+          done
+          (cd dist/package && zip -r "../$ASSET_NAME" .)
+          cp module.json dist/module.json
+
+      - name: Verify ZIP root
+        env:
+          ASSET_NAME: "simone-gm-panel.zip"
+        run: |
+          unzip -l "dist/$ASSET_NAME"
+          unzip -p "dist/$ASSET_NAME" module.json >/dev/null
+
+      - name: Create or update GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASSET_NAME: "simone-gm-panel.zip"
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/module.json "dist/$ASSET_NAME" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/module.json "dist/$ASSET_NAME"               --title "Simone GM Panel Core $GITHUB_REF_NAME"               --generate-notes
+          fi

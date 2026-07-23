@@ -1,0 +1,19 @@
+{
+  "SIMONE_GM_PANEL": {
+    "Title": "Simone GM Panel",
+    "EmptyState": "Nessuna feature del GM Panel è installata o attiva.",
+    "Settings": {
+      "Debug": {
+        "Name": "Modalità debug",
+        "Hint": "Abilita log di debug sintetici per il pannello GM."
+      }
+    },
+    "Notifications": {
+      "MissingCore": "Il modulo richiesto \"simone-homebrew\" deve essere attivo per Simone GM Panel.",
+      "OnlyGM": "Simone GM Panel è disponibile solo per il GM."
+    },
+    "Header": {
+      "CollapseHint": "Doppio click sull'header per espandere o ritrarre"
+    }
+  }
+}
