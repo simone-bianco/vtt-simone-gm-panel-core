@@ -107,6 +107,8 @@ async function validateI18n(root) {
   const enKeys = flattenKeys(en);
   const itKeys = flattenKeys(it);
   assert.deepEqual([...enKeys].sort(), [...itKeys].sort(), `${relative(projectRoot, root)} EN/IT key structure differs`);
+  // Features require Core and may use its shared labels (e.g. token focus).
+  const coreKeys = root === packages.core ? new Set() : flattenKeys(await readJson(resolve(packages.core, "languages/en.json")));
 
   const files = (await walk(root)).filter((path) => [".js", ".hbs"].includes(extname(path)) && !path.includes(`${sep}qa${sep}`));
   const missing = new Set();
@@ -118,7 +120,7 @@ async function validateI18n(root) {
       const next = source[match.index + key.length];
       if (next === "$" || next === ".") continue;
       lookups += 1;
-      if (!enKeys.has(key)) missing.add(`${relative(projectRoot, path)} -> ${key}`);
+      if (!enKeys.has(key) && !coreKeys.has(key)) missing.add(`${relative(projectRoot, path)} -> ${key}`);
     }
   }
   assert.deepEqual([...missing], [], `missing i18n lookups:\n${[...missing].join("\n")}`);
@@ -182,9 +184,11 @@ test("imports, owned assets and i18n are complete in every package", async (t) =
   }
 });
 
-test("core contains no live Dice or Sounds implementation assets", async () => {
+test("core owns selection UI but contains no live Dice or Sounds implementation assets", async () => {
   const files = (await walk(packages.core)).map((path) => relative(packages.core, path).replaceAll("\\", "/"));
-  const forbidden = files.filter((path) => !path.startsWith("qa/") && /(?:dice|soundboard|audio|group|playlist|token)/i.test(path));
+  const selectionAssets = new Set(["scripts/ui/gm-panel-selected-tokens.js", "templates/selected-tokens-footer.hbs"]);
+  const forbidden = files.filter((path) => !path.startsWith("qa/") && !selectionAssets.has(path)
+    && /(?:dice|soundboard|audio|group|playlist|token)/i.test(path));
   assert.deepEqual(forbidden, []);
 
   const productionSources = (await walk(packages.core)).filter((path) => extname(path) === ".js" && !path.includes(`${sep}qa${sep}`));

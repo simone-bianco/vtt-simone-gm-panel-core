@@ -79,7 +79,6 @@ async function loadActualSoundsFeature(observations = {}) {
       __setState: async () => {},
       __listenerSearch: addListener("search"),
       __listenerDropzone: addListener("dropzone"),
-      __listenerPan: addListener("pan"),
       __listenerActions: addListener("actions"),
       __listenerExpand: addListener("expand"),
       __listenerDrag: addListener("drag"),
@@ -89,7 +88,7 @@ async function loadActualSoundsFeature(observations = {}) {
       [resolve(soundsRoot, "scripts/debug.js")]: "export const configureLogger=(x)=>globalThis.__configureLogger(x); export const debug=(...x)=>globalThis.__debug(...x); export const error=(...x)=>globalThis.__error(...x);",
       [resolve(soundsRoot, "scripts/settings.js")]: "export const getPositionalEasing=()=>true; export const getPositionalElevation=()=>0; export const getPositionalRadius=()=>60; export const getPositionalVolume=()=>0.5; export const getPositionalWalls=()=>true; export const getSoundboardState=()=>globalThis.__getState(); export const setSoundboardState=(x)=>globalThis.__setState(x);",
       [resolve(soundsRoot, "scripts/initialization.js")]: "export const initializeSoundsFeature=()=>globalThis.__initialize();",
-      [resolve(soundsRoot, "scripts/sounds-listeners.js")]: "export const attachDropzoneListeners=(...x)=>globalThis.__listenerDropzone(...x); export const attachSearchListener=(...x)=>globalThis.__listenerSearch(...x); export const attachTokenPanListener=(...x)=>globalThis.__listenerPan(...x);",
+      [resolve(soundsRoot, "scripts/sounds-listeners.js")]: "export const attachDropzoneListeners=(...x)=>globalThis.__listenerDropzone(...x); export const attachSearchListener=(...x)=>globalThis.__listenerSearch(...x);",
       [resolve(soundsRoot, "scripts/ui/gm-panel-app-callbacks.js")]: "export const buildSoundboardCallbacks=()=>({});",
       [resolve(soundsRoot, "scripts/ui/gm-panel-app-map-drop.js")]: "export const handleGroupMapDrop=()=>{}; export const handleItemMapDrop=()=>{};",
       [resolve(soundsRoot, "scripts/ui/gm-panel-audio-controller.js")]: stubClass("GmPanelAudioController"),
@@ -98,7 +97,6 @@ async function loadActualSoundsFeature(observations = {}) {
       [resolve(soundsRoot, "scripts/ui/gm-panel-group-audio-controller.js")]: stubClass("GmPanelGroupAudioController"),
       [resolve(soundsRoot, "scripts/ui/gm-panel-map-drop.js")]: "export const attachCanvasDropListener=(...x)=>globalThis.__attachCanvas(...x);",
       [resolve(soundsRoot, "scripts/ui/gm-panel-soundboard-store.js")]: stubClass("GmPanelSoundboardStore"),
-      [resolve(soundsRoot, "scripts/ui/gm-panel-token-controller.js")]: stubClass("GmPanelTokenController"),
     },
   });
 }
@@ -189,6 +187,7 @@ test("core app renders empty state and cleans bind/deactivate lifecycle determin
   const { namespace: appNs } = await loadVmModule(resolve(coreRoot, "scripts/ui/gm-panel-app.js"), {
     globals: {
       game: { user: { isGM: true }, i18n: { localize: (key) => key, format: (key) => key } },
+      Hooks: { on: (name, callback) => callback, off() {} },
       foundry: {
         applications: {
           api: { ApplicationV2, HandlebarsApplicationMixin: (Base) => class extends Base {} },
@@ -245,6 +244,10 @@ test("core app renders empty state and cleans bind/deactivate lifecycle determin
   assert.deepEqual(Array.from(firstContext.tabs, (tab) => tab.id), ["luck", "soundboards"]);
   assert.equal(firstContext.activeFeatureId, "luck");
   await app._onRender(firstContext, {});
+  const beforeFooter = events.slice();
+  const footerContext = await app._prepareContext({ parts: ["selectedTokens"] });
+  await app._onRender(footerContext, { parts: ["selectedTokens"] });
+  assert.deepEqual(events, beforeFooter, "selection-only render must not clean or rebind the active feature");
   await app._prepareContext({});
   assert.ok(events.indexOf("bound-cleanup:luck:1") < events.lastIndexOf("context:luck"), "bound cleanup must happen before rerender context");
   await app._onRender(firstContext, {});
@@ -275,10 +278,32 @@ test("actual Luck and Sounds bind cleanups and Sounds restore timer are owned by
   const element = new sandbox.HTMLElement();
   const cleanup = soundsDescriptor.bind(element, { logger: {}, requestRender() {} });
   cleanup();
-  assert.deepEqual(soundsObs.cleanupOrder, ["pan", "drag", "search", "dropzone", "expand", "actions"]);
+  assert.deepEqual(soundsObs.cleanupOrder, ["drag", "search", "dropzone", "expand", "actions"]);
   assert.equal(soundsObs.canvasDestroyCalls, 1);
   await soundsDescriptor.deactivate();
   assert.equal(sandbox.__timers.size, 0, "restore timer must be cancelled on deactivate");
   assert.ok(soundsObs.events.includes("GmPanelGroupAudioController:stopAllGroupsAndWait"));
   assert.ok(soundsObs.events.includes("GmPanelAudioController:stopAllAudio"));
+});
+
+test("Sounds consumes live core selection and pan services without a duplicate footer or token controller", async () => {
+  const observations = {};
+  const { namespace } = await loadActualSoundsFeature(observations);
+  const feature = namespace.soundsFeature;
+  let selection = [{ uuid: "Scene.one.Token.a" }];
+  const pans = [];
+  await feature.activate({
+    logger: {}, requestRender() {},
+    get selectedTokens() { return selection; },
+    panToToken: async (uuid) => pans.push(uuid),
+  });
+  assert.equal(feature.descriptor().footerTemplate, undefined);
+  assert.equal(feature.selectedTokens, selection);
+  selection = [{ uuid: "Scene.one.Token.b" }];
+  assert.equal(feature.selectedTokens, selection);
+  await feature.panToToken(selection[0].uuid);
+  assert.deepEqual(pans, ["Scene.one.Token.b"]);
+  assert.ok(observations.events.every((event) => !event.includes("TokenController")));
+  await feature.deactivate();
+  assert.equal(feature.selectedTokens.length, 0);
 });

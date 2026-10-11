@@ -11,6 +11,8 @@ Core host and public feature registry for the modular Simone GM Panel.
 - Hosts the GM-only ApplicationV2 panel.
 - Provides the versioned feature registry API.
 - Persists window position, collapsed state, and active feature.
+- Shows selected scene tokens below every feature, including when Sounds is disabled.
+- Clicking a selected token's icon centers the canvas on it. Selection updates only this footer.
 
 ## Installation
 

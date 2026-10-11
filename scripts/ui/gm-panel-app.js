@@ -7,9 +7,11 @@ import { debug, error, isDebugEnabled, warn } from "../debug.js";
 import { getPanelState, setPanelState } from "../settings.js";
 import { sanitizePosition } from "./gm-panel-position.js";
 import { getContentElement, getFrameElement, getHeaderElement } from "./gm-panel-app-dom.js";
+import { GmPanelSelectedTokens } from "./gm-panel-selected-tokens.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 const renderTemplate = foundry.applications.handlebars.renderTemplate;
+const isSelectionRender = (options) => options.parts?.length === 1 && options.parts[0] === "selectedTokens";
 
 export class SimoneGmPanelApp extends HandlebarsApplicationMixin(ApplicationV2) {
   static get DEFAULT_OPTIONS() {
@@ -40,6 +42,9 @@ export class SimoneGmPanelApp extends HandlebarsApplicationMixin(ApplicationV2) 
     footer: {
       template: "modules/simone-gm-panel/templates/feature-footer.hbs",
     },
+    selectedTokens: {
+      template: "modules/simone-gm-panel/templates/selected-tokens-footer.hbs",
+    },
   };
 
   #registry;
@@ -50,6 +55,7 @@ export class SimoneGmPanelApp extends HandlebarsApplicationMixin(ApplicationV2) 
   #boundFeatureCleanup = null;
   #navigationCleanup = null;
   #headerCleanup = null;
+  #selectedTokens = new GmPanelSelectedTokens(this);
   #persistStateDebounced = foundry.utils.debounce(() => void this.#persistState(), 250);
 
   constructor({ registry, ...options } = {}) {
@@ -70,6 +76,7 @@ export class SimoneGmPanelApp extends HandlebarsApplicationMixin(ApplicationV2) 
   }
 
   async _prepareContext(options) {
+    if (isSelectionRender(options)) return { selectedTokens: this.#selectedTokens.collect() };
     await this.#cleanupBoundFeature();
     this.#registry.freeze();
     this.#normalizeActiveFeature();
@@ -109,14 +116,18 @@ export class SimoneGmPanelApp extends HandlebarsApplicationMixin(ApplicationV2) 
       }
     }
 
+    context.selectedTokens = this.#selectedTokens.collect();
     context.isCollapsed = this.#collapsed;
     return context;
   }
 
   async _onRender(context, options) {
     await super._onRender(context, options);
+    if (isSelectionRender(options)) return;
     this.#detachCoreListeners();
     this.#attachCoreListeners();
+    this.#selectedTokens.activate();
+    if (this.element instanceof HTMLElement) this.#selectedTokens.bind(this.element);
     this.#applyCollapsedState();
 
     const active = this.#registry.getFeature(this.#activeFeatureId);
@@ -130,6 +141,7 @@ export class SimoneGmPanelApp extends HandlebarsApplicationMixin(ApplicationV2) 
   }
 
   async _onClose(options) {
+    this.#selectedTokens.deactivate();
     await this.#cleanupBoundFeature();
     this.#detachCoreListeners();
 
@@ -202,6 +214,7 @@ export class SimoneGmPanelApp extends HandlebarsApplicationMixin(ApplicationV2) 
   #createHostServices(featureId) {
     const services = {
       requestRender: () => this.render({ force: true }),
+      panToToken: (uuid) => this.#selectedTokens.panToToken(uuid),
       registerCleanup: (cleanup) => {
         if (typeof cleanup !== "function") return;
         const list = this.#featureCleanups.get(featureId) ?? [];
@@ -215,6 +228,10 @@ export class SimoneGmPanelApp extends HandlebarsApplicationMixin(ApplicationV2) 
     Object.defineProperty(services, "activeFeatureId", {
       enumerable: true,
       get: () => this.#activeFeatureId,
+    });
+    Object.defineProperty(services, "selectedTokens", {
+      enumerable: true,
+      get: () => this.#selectedTokens.collect(),
     });
     return Object.freeze(services);
   }

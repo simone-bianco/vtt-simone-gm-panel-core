@@ -1,0 +1,15 @@
+<footer class="sgmp-selected-tokens-footer" aria-label="{{localize 'SIMONE_GM_PANEL.Tokens.Selected'}}">
+  {{#if selectedTokens.length}}
+    <div class="sgmp-token-chips">
+      {{#each selectedTokens as |token|}}
+      <button type="button" class="sgmp-token-chip" data-action="pan-to-token"
+        data-token-uuid="{{token.uuid}}" title="{{token.name}}"
+        aria-label="{{localize 'SIMONE_GM_PANEL.Tokens.PanTo' name=token.name}}">
+        <img src="{{token.img}}" alt="{{token.name}}">
+      </button>
+      {{/each}}
+    </div>
+  {{else}}
+    <span class="sgmp-selected-placeholder">{{localize 'SIMONE_GM_PANEL.Tokens.Empty'}}</span>
+  {{/if}}
+</footer>

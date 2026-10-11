@@ -96,3 +96,61 @@
 .sgmp-tab-panel:not(.active) {
   display: none;
 }
+
+.simone-gm-panel-app .sgmp-selected-tokens-footer {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  width: 100%;
+  max-height: 160px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 6px;
+  border: 1px solid var(--sgmp-border);
+  border-radius: 6px;
+  background: var(--sgmp-surface);
+}
+
+.simone-gm-panel-app .sgmp-token-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.simone-gm-panel-app .sgmp-token-chip {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  min-height: 0;
+  padding: 0;
+  border: 2px solid var(--sgmp-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: transparent;
+  transition: 100ms ease;
+}
+
+.simone-gm-panel-app .sgmp-token-chip:hover,
+.simone-gm-panel-app .sgmp-token-chip:focus-visible {
+  border-color: var(--sgmp-accent);
+  box-shadow: 0 0 8px rgba(216, 167, 79, 0.45);
+}
+
+.simone-gm-panel-app .sgmp-token-chip img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.simone-gm-panel-app .sgmp-selected-placeholder {
+  display: block;
+  padding: 3px 4px;
+  font-size: 11px;
+  color: var(--color-text-light-6);
+  font-style: italic;
+}

@@ -10,7 +10,13 @@
     },
     "Notifications": {
       "MissingCore": "Required module \"simone-homebrew\" must be active for Simone GM Panel.",
-      "OnlyGM": "Simone GM Panel is available only to the GM."
+      "OnlyGM": "Simone GM Panel is available only to the GM.",
+      "TokenNotFound": "Token not found on the current scene. It may have been removed."
+    },
+    "Tokens": {
+      "Selected": "Selected tokens",
+      "Empty": "No tokens selected",
+      "PanTo": "Focus on {name}"
     },
     "Header": {
       "CollapseHint": "Double-click header to collapse or expand"
